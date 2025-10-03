@@ -11,11 +11,12 @@ from pathlib import Path
 import httpx
 from openai import AsyncOpenAI
 
-from .answer import SynthesisResult, synthesize_answer
+from .answer import synthesize_answer
 from .config import load_settings
 from .pipeline import ProcessedPage, gather_pages
 from .report import build_json_record, render_report
-from .search import SearchExpansion, generate_search_queries, render_search_expansion
+from .search import generate_search_queries, render_search_expansion
+from .workflow import ResearchResult, ResearchWorkflow
 
 logger = logging.getLogger(__name__)
 
@@ -94,42 +95,27 @@ async def run_async(args: argparse.Namespace) -> int:
         settings.output_dir = args.output_dir.expanduser()
 
     urls = _read_urls(args.urls, args.urls_file)
-    if not urls and not args.suggest_queries:
-        logger.error("At least one URL must be provided via --url or --urls-file")
-        return 2
-
-    results: list[ProcessedPage] = []
-    synthesis: SynthesisResult | None = None
-    search_plan: SearchExpansion | None = None
-
+    result: ResearchResult | None = None
     async with httpx.AsyncClient(
         headers={"User-Agent": settings.user_agent}
     ) as http_client:
         llm_client = AsyncOpenAI(timeout=settings.openai_timeout)
         try:
-            if args.suggest_queries:
-                search_plan = await generate_search_queries(
-                    llm_client,
-                    settings,
-                    args.prompt,
-                )
-
-            if urls:
-                results = await gather_pages(
-                    urls,
-                    args.prompt,
-                    settings=settings,
-                    http_client=http_client,
-                    llm_client=llm_client,
-                    refresh_cache=args.refresh_cache,
-                )
-                if results:
-                    synthesis = await synthesize_answer(
-                        llm_client,
-                        settings,
-                        args.prompt,
-                        results,
-                    )
+            workflow = ResearchWorkflow(
+                settings=settings,
+                http_client=http_client,
+                llm_client=llm_client,
+                generate_search_queries_fn=generate_search_queries,
+                gather_pages_fn=gather_pages,
+                synthesize_answer_fn=synthesize_answer,
+            )
+            handler = workflow.run(
+                prompt=args.prompt,
+                urls=urls,
+                suggest_queries=args.suggest_queries,
+                refresh_cache=args.refresh_cache,
+            )
+            result = await handler
         finally:
             close = getattr(llm_client, "close", None)
             if callable(close):
@@ -137,45 +123,31 @@ async def run_async(args: argparse.Namespace) -> int:
                 if asyncio.iscoroutine(maybe_coro):
                     await maybe_coro
 
-    if not urls and search_plan:
-        section = render_search_expansion(search_plan)
-        print(section)
-        if args.json_output:
-            payload = {
-                "prompt": args.prompt,
-                "final_answer": None,
-                "sources_consulted": [],
-                "pages": [],
-                "search_queries": search_plan.to_dict(),
-            }
-            json_path = args.json_output.expanduser()
-            json_path.parent.mkdir(parents=True, exist_ok=True)
-            json_path.write_text(
-                json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8"
-            )
-            logger.info("Wrote JSON summary to %s", json_path)
-        return 0
-
-    if not urls and not search_plan:
-        logger.error("Failed to generate search queries for the provided prompt")
+    if result is None:
+        logger.error("Research workflow did not return a result")
         return 1
 
-    if not results:
-        if search_plan:
-            print(render_search_expansion(search_plan))
-        logger.error("No pages processed successfully")
-        return 1
+    logger.info(
+        "Workflow completed: exit_code=%d pages=%d search_plan=%s",
+        result.exit_code,
+        len(result.processed_pages),
+        bool(result.search_plan),
+    )
 
     separator = "\n" + "=" * 80 + "\n"
     sections: list[str] = []
-    if search_plan:
-        sections.append(render_search_expansion(search_plan))
-    ordered_results: list[ProcessedPage] = list(results)
+    if result.search_plan:
+        sections.append(render_search_expansion(result.search_plan))
+
+    ordered_results: list[ProcessedPage] = list(result.processed_pages)
+    synthesis = result.synthesis
 
     if synthesis:
         prioritized = list(synthesis.ordered_pages)
         prioritized_ids = {id(item) for item in prioritized}
-        remaining = [item for item in results if id(item) not in prioritized_ids]
+        remaining = [
+            item for item in result.processed_pages if id(item) not in prioritized_ids
+        ]
         ordered_results = prioritized + remaining
 
     if synthesis:
@@ -192,16 +164,18 @@ async def run_async(args: argparse.Namespace) -> int:
                 )
         sections.append("\n".join(lines).strip())
 
-    sections.extend(
-        render_report(item.page, item.assessment) for item in ordered_results
-    )
+    if ordered_results:
+        sections.extend(
+            render_report(item.page, item.assessment) for item in ordered_results
+        )
 
-    if len(sections) == 1:
-        print(sections[0])
-    else:
-        print(separator.join(sections))
+    if sections:
+        if len(sections) == 1:
+            print(sections[0])
+        else:
+            print(separator.join(sections))
 
-    if args.json_output:
+    if args.json_output and result.exit_code == 0:
         payload = {
             "prompt": args.prompt,
             "final_answer": synthesis.answer if synthesis else None,
@@ -221,7 +195,9 @@ async def run_async(args: argparse.Namespace) -> int:
                 build_json_record(item.page, item.assessment)
                 for item in ordered_results
             ],
-            "search_queries": search_plan.to_dict() if search_plan else None,
+            "search_queries": (
+                result.search_plan.to_dict() if result.search_plan else None
+            ),
         }
         json_path = args.json_output.expanduser()
         json_path.parent.mkdir(parents=True, exist_ok=True)
@@ -230,7 +206,7 @@ async def run_async(args: argparse.Namespace) -> int:
         )
         logger.info("Wrote JSON summary to %s", json_path)
 
-    return 0
+    return result.exit_code
 
 
 def main() -> None:
