@@ -1,0 +1,5 @@
+- after everything you have implemented, update PLAN.md with the updates and possible todos.
+- always use 'uv add' to manage dependencies (do not forget to run 'uv sync' afterwards). avoid direct calls to pip.
+- use 'uv run' to run any python code.
+- never run "python" directly, instead use "uv run python"
+- use ruff for linting and formatting.

@@ -1,0 +1,14 @@
+[default]
+fetch_concurrency = 5
+request_timeout = 15.0
+request_retries = 2
+request_backoff = 0.5
+user_agent = "Mozilla/5.0 (compatible; Scolar/0.1; +https://example.com)"
+output_dir = "artifacts"
+max_markdown_chars = 20000
+max_links_inspected = 100
+max_recommended_links = 5
+openai_model = "gpt-4.1-mini"
+openai_temperature = 0.2
+openai_timeout = 30.0
+llm_concurrency = 1
