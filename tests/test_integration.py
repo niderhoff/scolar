@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Iterable
+from typing import Any, Dict, Iterable
 
 import pytest
 
@@ -91,7 +91,7 @@ async def test_gather_pages_happy_path(tmp_path: Path) -> None:
     <body><p>Sample content paragraph.</p><a href='https://example.com/next'>Next</a></body>
     </html>
     """
-    http_client = _FakeHTTPClient({url: html})
+    http_client: Any = _FakeHTTPClient({url: html})
 
     llm_output = {
         "summary": "Concise summary of the page.",
@@ -108,7 +108,7 @@ async def test_gather_pages_happy_path(tmp_path: Path) -> None:
             }
         ],
     }
-    llm_client = _FakeLLMClient([json_dumps(llm_output)])
+    llm_client: Any = _FakeLLMClient([json_dumps(llm_output)])
 
     settings = _make_settings(tmp_path)
 
@@ -116,8 +116,8 @@ async def test_gather_pages_happy_path(tmp_path: Path) -> None:
         [url],
         research_prompt="Prompt",
         settings=settings,
-        http_client=http_client,  # type: ignore[arg-type]
-        llm_client=llm_client,  # type: ignore[arg-type]
+        http_client=http_client,
+        llm_client=llm_client,
     )
 
     assert len(results) == 1
@@ -143,8 +143,8 @@ async def test_gather_pages_skips_when_llm_fails(tmp_path: Path) -> None:
 
     url = "https://example.com/bad"
     html = "<html><body><p>Content</p></body></html>"
-    http_client = _FakeHTTPClient({url: html})
-    llm_client = _FakeLLMClient(["not json"])
+    http_client: Any = _FakeHTTPClient({url: html})
+    llm_client: Any = _FakeLLMClient(["not json"])
 
     settings = _make_settings(tmp_path)
 
@@ -152,8 +152,8 @@ async def test_gather_pages_skips_when_llm_fails(tmp_path: Path) -> None:
         [url],
         research_prompt="Prompt",
         settings=settings,
-        http_client=http_client,  # type: ignore[arg-type]
-        llm_client=llm_client,  # type: ignore[arg-type]
+        http_client=http_client,
+        llm_client=llm_client,
     )
 
     assert results == []

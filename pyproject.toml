@@ -29,4 +29,15 @@ dev = [
     "pytest>=8.4.2",
     "pytest-asyncio>=1.2.0",
     "ruff>=0.13.3",
+    "mypy>=1.18.2",
 ]
+
+[tool.mypy]
+python_version = "3.13"
+packages = ["scolar", "tests"]
+show_error_codes = true
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+strict_optional = true
+ignore_missing_imports = true

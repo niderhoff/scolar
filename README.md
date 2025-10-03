@@ -79,7 +79,7 @@ The test suite covers configuration precedence, async pipeline behavior with moc
 
 ### Pre-commit Hooks (Recommended for Linting & Formatting)
 
-Install Git hooks so Ruff linting and formatting checks run automatically before each commit:
+Install Git hooks so Ruff linting/formatting and mypy type checks run automatically before each commit:
 
 ```bash
 uv run pre-commit install
@@ -91,7 +91,13 @@ Run the hooks manually when needed to ensure consistency:
 uv run pre-commit run --all-files
 ```
 
-By relying on the pre-commit configuration, everyone runs the same lint/format commands with the same versions, avoiding local drift.
+Need a one-off type check without the hook runner?
+
+```bash
+uv run mypy src tests
+```
+
+By relying on pre-commit, everyone runs the same Ruff and mypy checks with consistent versions, avoiding local drift.
 
 ## Environment Variables
 
@@ -105,4 +111,4 @@ For local experiments, override any setting via environment variables or by prov
 
 ## License
 
-MIT
+Copyright (c) 2025 Nicolas Iderhoff. All rights reserved. No license is granted for redistribution or derivative works without explicit permission.

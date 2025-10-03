@@ -29,10 +29,10 @@ def parse_html(url: str, html: str, settings: Settings) -> PageContent:
     for link in soup.select("a[href]"):
         if len(links) >= settings.max_links_inspected:
             break
-        href = link.get("href")
-        if not href:
+        href_attr = link.get("href")
+        if not href_attr or not isinstance(href_attr, str):
             continue
-        absolute = urljoin(url, href.strip())
+        absolute = urljoin(url, href_attr.strip())
         if not absolute.startswith(("http://", "https://")):
             continue
         text = " ".join(link.get_text(" ", strip=True).split()) or absolute

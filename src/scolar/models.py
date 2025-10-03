@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
-from pydantic import BaseModel, Field, HttpUrl, ValidationError, conint
+from pydantic import BaseModel, Field, HttpUrl, ValidationError
 
 
 @dataclass(slots=True)
@@ -45,7 +45,7 @@ class PageAssessment:
 
 
 class ScorePayload(BaseModel):
-    rating: conint(ge=1, le=5)
+    rating: int = Field(..., ge=1, le=5)
     justification: str = Field(..., min_length=1)
 
 
