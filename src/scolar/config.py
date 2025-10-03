@@ -37,6 +37,7 @@ class Settings(BaseModel):
     llm_concurrency: int = Field(default=1, ge=1)
     final_answer_max_pages: int = Field(default=5, ge=1)
     final_answer_excerpt_chars: int = Field(default=1_500, ge=200)
+    cache_ttl_hours: int = Field(default=72, ge=1)
 
     model_config = ConfigDict(validate_assignment=True)
 

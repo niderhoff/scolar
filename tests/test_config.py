@@ -49,6 +49,7 @@ def test_load_settings_from_single_file(
             openai_temperature = 0.55
             openai_timeout = 45.0
             llm_concurrency = 2
+            cache_ttl_hours = 48
             """
         ).strip(),
         encoding="utf-8",
@@ -70,6 +71,7 @@ def test_load_settings_from_single_file(
     assert settings.openai_temperature == pytest.approx(0.55)
     assert settings.openai_timeout == pytest.approx(45.0)
     assert settings.llm_concurrency == 2
+    assert settings.cache_ttl_hours == 48
 
 
 def test_environment_overrides_take_precedence(

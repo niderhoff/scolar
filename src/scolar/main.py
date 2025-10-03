@@ -68,6 +68,11 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         type=Path,
         help="Optional path to write a JSON summary report",
     )
+    parser.add_argument(
+        "--refresh-cache",
+        action="store_true",
+        help="Ignore cached pages and force fresh fetches",
+    )
     parser.add_argument("--verbose", action="store_true", help="Enable debug logging")
     return parser.parse_args(argv)
 
@@ -98,6 +103,7 @@ async def run_async(args: argparse.Namespace) -> int:
                 settings=settings,
                 http_client=http_client,
                 llm_client=llm_client,
+                refresh_cache=args.refresh_cache,
             )
             if results:
                 synthesis = await synthesize_answer(

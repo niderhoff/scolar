@@ -58,6 +58,9 @@ async def test_run_async_outputs_markdown_and_json(
         openai_temperature=0.0,
         openai_timeout=10.0,
         llm_concurrency=1,
+        final_answer_max_pages=5,
+        final_answer_excerpt_chars=1_500,
+        cache_ttl_hours=72,
     )
 
     monkeypatch.setattr("scolar.main.load_settings", lambda: settings)
@@ -91,9 +94,12 @@ async def test_run_async_outputs_markdown_and_json(
 
     processed = ProcessedPage(page=page, assessment=assessment)
 
-    async def fake_gather_pages(urls, prompt, *, settings, http_client, llm_client):  # noqa: ANN001, ANN202
+    async def fake_gather_pages(
+        urls, prompt, *, settings, http_client, llm_client, refresh_cache
+    ):  # noqa: ANN001, ANN202
         assert prompt == "Test prompt"
         assert llm_client is dummy_llm
+        assert refresh_cache is False
         return [processed]
 
     monkeypatch.setattr("scolar.main.gather_pages", fake_gather_pages)
@@ -116,6 +122,7 @@ async def test_run_async_outputs_markdown_and_json(
         output_dir=None,
         json_output=json_path,
         verbose=False,
+        refresh_cache=False,
     )
 
     exit_code = await run_async(args)

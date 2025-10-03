@@ -12,8 +12,16 @@ import pytest
 import httpx
 from openai import AsyncOpenAI
 
+from scolar.cache import PageCache
 from scolar.config import Settings
-from scolar.pipeline import gather_pages
+from scolar.models import (
+    LinkInfo,
+    PageAssessment,
+    PageContent,
+    RecommendedLink,
+    Score,
+)
+from scolar.pipeline import ProcessedPage, gather_pages
 
 
 @dataclass
@@ -82,6 +90,9 @@ def _make_settings(output_dir: Path) -> Settings:
         openai_temperature=0.0,
         openai_timeout=10.0,
         llm_concurrency=2,
+        final_answer_max_pages=5,
+        final_answer_excerpt_chars=1_500,
+        cache_ttl_hours=72,
     )
 
 
@@ -171,3 +182,120 @@ def json_dumps(obj: dict) -> str:
     import json
 
     return json.dumps(obj)
+
+
+@pytest.mark.asyncio
+async def test_gather_pages_uses_cache_within_ttl(tmp_path: Path) -> None:
+    """Cached pages fetched within the TTL should be reused without new HTTP or LLM calls."""
+
+    settings = _make_settings(tmp_path)
+    url = "https://example.com/cached"
+
+    markdown_path = tmp_path / "cached.md"
+    markdown_text = "Cached markdown content"
+    markdown_path.write_text(markdown_text, encoding="utf-8")
+
+    cached_page = PageContent(
+        url=url,
+        title="Cached Title",
+        markdown=markdown_text,
+        links=[LinkInfo(title="More", url="https://example.com/more")],
+        truncated=False,
+        markdown_path=markdown_path,
+    )
+    cached_assessment = PageAssessment(
+        summary="Cached summary",
+        technical_depth=Score(rating=4, justification="Depth"),
+        prompt_fit=Score(rating=5, justification="Fit"),
+        recommended_links=[
+            RecommendedLink(
+                title="Follow",
+                url="https://example.com/follow",
+                reason="More",
+            )
+        ],
+    )
+
+    cache = PageCache(settings)
+    await cache.save(url=url, page=cached_page, assessment=cached_assessment)
+
+    fake_http_client = _FakeHTTPClient({})
+    fake_llm_client = _FakeLLMClient([])
+
+    results = await gather_pages(
+        [url],
+        research_prompt="Prompt",
+        settings=settings,
+        http_client=cast(httpx.AsyncClient, fake_http_client),
+        llm_client=cast(AsyncOpenAI, fake_llm_client),
+    )
+
+    assert len(results) == 1
+    processed = results[0]
+    assert processed.page.markdown == markdown_text
+    assert processed.assessment.summary == "Cached summary"
+    assert fake_http_client.requested == []
+    assert fake_llm_client.responses.calls == 0
+
+
+@pytest.mark.asyncio
+async def test_gather_pages_refresh_flag_bypasses_cache(tmp_path: Path) -> None:
+    """The refresh flag should force new network and LLM work even when cache exists."""
+
+    settings = _make_settings(tmp_path)
+    url = "https://example.com/refresh"
+
+    markdown_path = tmp_path / "refresh.md"
+    markdown_path.write_text("Old", encoding="utf-8")
+
+    cached_page = PageContent(
+        url=url,
+        title="Old Title",
+        markdown="Old",
+        links=[],
+        truncated=False,
+        markdown_path=markdown_path,
+    )
+    cached_assessment = PageAssessment(
+        summary="Old summary",
+        technical_depth=Score(rating=2, justification="Old depth"),
+        prompt_fit=Score(rating=2, justification="Old fit"),
+        recommended_links=[],
+    )
+
+    cache = PageCache(settings)
+    await cache.save(url=url, page=cached_page, assessment=cached_assessment)
+
+    html = """
+    <html><head><title>New Title</title></head>
+    <body><p>Fresh content</p></body>
+    </html>
+    """
+    fake_http_client = _FakeHTTPClient({url: html})
+
+    llm_output = {
+        "summary": "New summary",
+        "technical_depth": {
+            "rating": 5,
+            "justification": "Very deep",
+        },
+        "prompt_fit": {"rating": 4, "justification": "Quite relevant"},
+        "recommended_links": [],
+    }
+    fake_llm_client = _FakeLLMClient([json_dumps(llm_output)])
+
+    results = await gather_pages(
+        [url],
+        research_prompt="Prompt",
+        settings=settings,
+        http_client=cast(httpx.AsyncClient, fake_http_client),
+        llm_client=cast(AsyncOpenAI, fake_llm_client),
+        refresh_cache=True,
+    )
+
+    assert fake_http_client.requested == [url]
+    assert fake_llm_client.responses.calls == 1
+    assert len(results) == 1
+    processed = results[0]
+    assert processed.assessment.summary == "New summary"
+    assert processed.page.title == "New Title"

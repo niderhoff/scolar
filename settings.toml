@@ -14,3 +14,4 @@ openai_timeout = 30.0
 llm_concurrency = 1
 final_answer_max_pages = 5
 final_answer_excerpt_chars = 1500
+cache_ttl_hours = 72

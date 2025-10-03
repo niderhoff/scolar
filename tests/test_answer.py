@@ -52,6 +52,7 @@ def _settings(
         llm_concurrency=1,
         final_answer_max_pages=max_pages,
         final_answer_excerpt_chars=excerpt_chars,
+        cache_ttl_hours=72,
     )
 
 

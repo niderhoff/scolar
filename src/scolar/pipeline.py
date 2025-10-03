@@ -7,6 +7,7 @@ from dataclasses import dataclass
 import httpx
 from openai import AsyncOpenAI
 
+from .cache import PageCache
 from .config import Settings
 from .fetcher import fetch_html
 from .models import PageAssessment, PageContent
@@ -30,6 +31,7 @@ async def process_url(
     http_client: httpx.AsyncClient,
     llm_client: AsyncOpenAI,
     settings: Settings,
+    cache: PageCache | None = None,
     fetch_semaphore: asyncio.Semaphore | None = None,
     llm_semaphore: asyncio.Semaphore | None = None,
 ) -> ProcessedPage | None:
@@ -53,7 +55,12 @@ async def process_url(
     if not assessment:
         return None
 
-    return ProcessedPage(page=page, assessment=assessment)
+    processed = ProcessedPage(page=page, assessment=assessment)
+
+    if cache:
+        await cache.save(url=url, page=page, assessment=assessment)
+
+    return processed
 
 
 async def gather_pages(
@@ -63,36 +70,57 @@ async def gather_pages(
     settings: Settings,
     http_client: httpx.AsyncClient,
     llm_client: AsyncOpenAI,
+    refresh_cache: bool = False,
 ) -> list[ProcessedPage]:
     fetch_semaphore = asyncio.Semaphore(settings.fetch_concurrency)
     llm_semaphore = asyncio.Semaphore(settings.llm_concurrency)
 
-    tasks = [
-        asyncio.create_task(
+    cache = PageCache(settings)
+
+    tasks: list[asyncio.Task[ProcessedPage | None]] = []
+    task_urls: list[str] = []
+    results_by_url: dict[str, ProcessedPage] = {}
+
+    for url in urls:
+        if not refresh_cache:
+            cached = await cache.load(url)
+            if cached:
+                results_by_url[url] = ProcessedPage(
+                    page=cached.page, assessment=cached.assessment
+                )
+                continue
+
+        task = asyncio.create_task(
             process_url(
                 url,
                 research_prompt,
                 http_client=http_client,
                 llm_client=llm_client,
                 settings=settings,
+                cache=cache,
                 fetch_semaphore=fetch_semaphore,
                 llm_semaphore=llm_semaphore,
             )
         )
-        for url in urls
-    ]
+        tasks.append(task)
+        task_urls.append(url)
 
-    results: list[ProcessedPage] = []
-    for task in asyncio.as_completed(tasks):
-        try:
-            result = await task
-        except Exception:  # noqa: BLE001
-            logger.exception("Unhandled error processing URL")
-            continue
+    if tasks:
+        completed = await asyncio.gather(*tasks, return_exceptions=True)
+        for url, outcome in zip(task_urls, completed, strict=False):
+            if isinstance(outcome, Exception):
+                logger.error("Unhandled error processing URL %s", url, exc_info=outcome)
+                continue
+            if outcome:
+                results_by_url[url] = outcome
+
+    ordered_results: list[ProcessedPage] = []
+    for url in urls:
+        result = results_by_url.get(url)
         if result:
-            results.append(result)
+            ordered_results.append(result)
 
-    return results
+    return ordered_results
 
 
 __all__ = ["ProcessedPage", "process_url", "gather_pages"]
