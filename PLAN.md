@@ -48,6 +48,7 @@
 - [x] Migrated legacy generics (`Dict`, `List`, `Optional`) to builtin `dict`, `list`, and union syntax across runtime and tests.
 - [x] Added GitHub Actions workflow that syncs dependencies with `uv` and runs `ruff check` plus `mypy` on pushes and pull requests.
 - [x] Extended CI workflow to execute `uv run pytest` alongside lint and type checks.
+- [x] Verified `_build_slug` hash suffix logic and ensured duplicate-title collision coverage via `tests/test_storage.py` on October 3, 2025.
 
 ## Next Steps
 
@@ -55,3 +56,8 @@
 2. [ ] Consider snapshot-based assertions for large markdown outputs once additional report sections are introduced.
 3. [x] Evaluate adding a static type checker (e.g., mypy or pyright) to enforce stricter annotations in CI (confirmed mypy already runs via CI workflow and pre-commit).
 4. [x] Audit remaining modules for `collections.abc` usage to ensure consistency with modern type hints (confirmed only `main.py` and integration tests import `Iterable` from `collections.abc`).
+
+## New Features
+
+- [ ] add a search query generator that will given the prompt create various search queries that help discover links to answer the question.
+- [ ] add a link relevancy scoring function that will evaluate a link for relevancy to the initial prompt and to the generated search queries. (for example making sure that when we search about Tool v5.x we don't include links to Tool v4.x, or similar named tools from other areas of technology etc.)

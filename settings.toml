@@ -1,5 +1,5 @@
 [default]
-fetch_concurrency = 5
+fetch_concurrency = 3
 request_timeout = 15.0
 request_retries = 2
 request_backoff = 0.5
