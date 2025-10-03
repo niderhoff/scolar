@@ -85,10 +85,19 @@ async def gather_pages(
         if not refresh_cache:
             cached = await cache.load(url)
             if cached:
+                logger.info(
+                    "Cache hit for %s (fetched at %s)",
+                    url,
+                    cached.fetched_at.isoformat(),
+                )
                 results_by_url[url] = ProcessedPage(
                     page=cached.page, assessment=cached.assessment
                 )
                 continue
+
+            logger.info("Cache miss for %s; scheduling fetch", url)
+        else:
+            logger.info("Refresh requested; scheduling fetch for %s", url)
 
         task = asyncio.create_task(
             process_url(

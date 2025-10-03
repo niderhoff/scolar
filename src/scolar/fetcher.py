@@ -26,6 +26,7 @@ async def fetch_html(
     while attempt < max_attempts:
         attempt += 1
         try:
+            logger.info("Fetching %s (attempt %s/%s)", url, attempt, max_attempts)
             if semaphore:
                 async with semaphore:
                     response = await client.get(url, timeout=settings.request_timeout)
