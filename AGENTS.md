@@ -5,3 +5,4 @@
 - use ruff for linting and formatting.
 - avoid using "Any" type where possible and use stricter types if you can.
 - user modern python type hints, i.e. avoid using Dict and List etc., instead use the modern lowercase dict and list types, avoid using Union and Optional, instead use "|" (pipe operator) and "| None"
+- prepend all uv commands with UV_CACHE_DIR=.uv-cache

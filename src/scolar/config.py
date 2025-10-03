@@ -6,7 +6,6 @@ from typing import cast
 from dynaconf import Dynaconf
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-
 _dynaconf_settings = Dynaconf(
     envvar_prefix="SCOLAR",
     settings_files=["settings.toml"],
@@ -19,25 +18,87 @@ SettingValue = int | float | str | Path
 
 
 class Settings(BaseModel):
-    fetch_concurrency: int = Field(default=5, ge=1)
-    request_timeout: float = Field(default=15.0, ge=1.0)
-    request_retries: int = Field(default=2, ge=0)
-    request_backoff: float = Field(default=0.5, ge=0.0)
+    """Runtime configuration for the Scolar orchestrator."""
+
+    fetch_concurrency: int = Field(
+        default=5,
+        ge=1,
+        description="Maximum number of HTTP fetch tasks executed concurrently.",
+    )
+    request_timeout: float = Field(
+        default=15.0,
+        ge=1.0,
+        description="Seconds before an outbound HTTP request is aborted.",
+    )
+    request_retries: int = Field(
+        default=2,
+        ge=0,
+        description="Number of retry attempts for failed HTTP requests.",
+    )
+    request_backoff: float = Field(
+        default=0.5,
+        ge=0.0,
+        description="Base exponential backoff interval (seconds) between retries.",
+    )
     user_agent: str = Field(
         default="Mozilla/5.0 (compatible; Scolar/0.1; +https://example.com)",
         min_length=1,
+        description="User-Agent header applied to every outbound HTTP request.",
     )
-    output_dir: Path = Field(default=Path("artifacts"))
-    max_markdown_chars: int = Field(default=20_000, ge=1_000)
-    max_links_inspected: int = Field(default=100, ge=1)
-    max_recommended_links: int = Field(default=5, ge=0)
-    openai_model: str = Field(default="gpt-4.1-mini", min_length=1)
-    openai_temperature: float = Field(default=0.2, ge=0.0)
-    openai_timeout: float = Field(default=30.0, ge=1.0)
-    llm_concurrency: int = Field(default=1, ge=1)
-    final_answer_max_pages: int = Field(default=5, ge=1)
-    final_answer_excerpt_chars: int = Field(default=1_500, ge=200)
-    cache_ttl_hours: int = Field(default=72, ge=1)
+    output_dir: Path = Field(
+        default=Path("artifacts"),
+        description="Filesystem directory where generated artifacts are saved.",
+    )
+    max_markdown_chars: int = Field(
+        default=20_000,
+        ge=1_000,
+        description="Upper bound on characters retained from fetched Markdown content.",
+    )
+    max_links_inspected: int = Field(
+        default=10,
+        ge=1,
+        description="Cap on candidate links evaluated during discovery.",
+    )
+    max_recommended_links: int = Field(
+        default=5,
+        ge=0,
+        description="Maximum number of links surfaced in the final recommendations.",
+    )
+    openai_model: str = Field(
+        default="gpt-4.1-mini",
+        min_length=1,
+        description="Identifier of the OpenAI chat completion model in use.",
+    )
+    openai_temperature: float = Field(
+        default=0.2,
+        ge=0.0,
+        description="Sampling temperature applied to OpenAI completions.",
+    )
+    openai_timeout: float = Field(
+        default=30.0,
+        ge=1.0,
+        description="Seconds allowed for each OpenAI API request before timing out.",
+    )
+    llm_concurrency: int = Field(
+        default=1,
+        ge=1,
+        description="Maximum number of simultaneous OpenAI requests issued by the pipeline.",
+    )
+    final_answer_max_pages: int = Field(
+        default=5,
+        ge=1,
+        description="Highest page count permitted in the compiled final answer PDF.",
+    )
+    final_answer_excerpt_chars: int = Field(
+        default=1_500,
+        ge=200,
+        description="Character budget allocated for each excerpt embedded in the final answer.",
+    )
+    cache_ttl_hours: int = Field(
+        default=72,
+        ge=1,
+        description="Duration in hours that cached fetch results remain valid.",
+    )
 
     model_config = ConfigDict(validate_assignment=True)
 

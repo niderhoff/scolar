@@ -60,6 +60,7 @@
 - [x] Introduced a `visualize-workflow` CLI command that emits the HTML diagram using the new helper (October 3, 2025).
 - [x] Instrumented each workflow step with logging to surface event order and execution details before final output (October 3, 2025).
 - [x] Introduced a discovery workflow step that queries `r/localllama`, caches search hits for three days, and feeds discovered URLs into page gathering when none are provided by the user (October 3, 2025).
+- [x] Documented every runtime setting with inline descriptions in `config.py` to clarify their operational purpose (October 3, 2025).
 
 ## Next Steps
 
@@ -75,11 +76,12 @@
 10. [ ] Expand discovery sources beyond Reddit (e.g., curated blogs or broader web search) while reusing caching semantics and respecting site-specific query parameters.
 11. [x] Expose the workflow visualization helper via CLI command and add regression coverage that the HTML artifact is generated (October 3, 2025).
 12. [ ] Document the visualization workflow command usage in README and consider adding sample output.
+13. [ ] Sync the new inline setting documentation into user-facing docs or CLI help to keep explanations consistent.
 
 ## New Features
 
 - [x] add answer step that will actually answer the prompt given the files ordered by relevancy and technical depth.
-- [ ] modify the answer synthesis with another additional step that will list potential followup research questions, depending on the context it has seen (derived from things that were mentioned in the webpages).
+- [x] modify the answer synthesis with another additional step that will list potential followup research questions, depending on the context it has seen (derived from things that were mentioned in the webpages).
 - [ ] between crawling links and answer step I want the agent to preprocess each link by summarizing and collecting all different opinions and facts in each page (if they relate to the question).
 - [x] add a search query generator that will given the prompt create various search queries that help discover links to answer the question.
 - [x] add a Reddit-backed URL discovery stage that automatically seeds the workflow when no URLs are supplied (October 3, 2025).
