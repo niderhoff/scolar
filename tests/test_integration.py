@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Iterable
+from typing import Iterable
 
 import pytest
 
@@ -17,7 +17,7 @@ class _FakeResponse:
     """Minimal stand-in for httpx.Response used in fetcher."""
 
     text: str
-    headers: Dict[str, str]
+    headers: dict[str, str]
 
     def raise_for_status(self) -> None:
         return None
@@ -26,7 +26,7 @@ class _FakeResponse:
 class _FakeHTTPClient:
     """Async HTTP client that returns pre-baked HTML payloads keyed by URL."""
 
-    def __init__(self, mapping: Dict[str, str]) -> None:
+    def __init__(self, mapping: dict[str, str]) -> None:
         self._mapping = mapping
         self.requested: list[str] = []
 
@@ -91,7 +91,7 @@ async def test_gather_pages_happy_path(tmp_path: Path) -> None:
     <body><p>Sample content paragraph.</p><a href='https://example.com/next'>Next</a></body>
     </html>
     """
-    http_client: Any = _FakeHTTPClient({url: html})
+    http_client = _FakeHTTPClient({url: html})
 
     llm_output = {
         "summary": "Concise summary of the page.",
@@ -108,7 +108,7 @@ async def test_gather_pages_happy_path(tmp_path: Path) -> None:
             }
         ],
     }
-    llm_client: Any = _FakeLLMClient([json_dumps(llm_output)])
+    llm_client = _FakeLLMClient([json_dumps(llm_output)])
 
     settings = _make_settings(tmp_path)
 
@@ -143,8 +143,8 @@ async def test_gather_pages_skips_when_llm_fails(tmp_path: Path) -> None:
 
     url = "https://example.com/bad"
     html = "<html><body><p>Content</p></body></html>"
-    http_client: Any = _FakeHTTPClient({url: html})
-    llm_client: Any = _FakeLLMClient(["not json"])
+    http_client = _FakeHTTPClient({url: html})
+    llm_client = _FakeLLMClient(["not json"])
 
     settings = _make_settings(tmp_path)
 

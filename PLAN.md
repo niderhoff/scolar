@@ -42,7 +42,12 @@
 - [x] CLI-level test verifying markdown and JSON outputs with mocked dependencies (`tests/test_cli.py`).
 - [x] End-to-end smoke equivalent via CLI run_async entry, covering the same code path as `uv run scolar`.
 
+## Recent Updates
+
+- [x] Eliminated `typing.Any` usages in configuration and integration tests to tighten static type coverage.
+
 ## Next Steps
 
 1. [ ] Add optional structured logging configuration if deeper observability is required.
 2. [ ] Consider snapshot-based assertions for large markdown outputs once additional report sections are introduced.
+3. [ ] Evaluate adding a static type checker (e.g., mypy or pyright) to enforce stricter annotations in CI.

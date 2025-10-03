@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict
 
 from dynaconf import Dynaconf
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -37,14 +36,14 @@ class Settings(BaseModel):
 
     @field_validator("output_dir", mode="before")
     @classmethod
-    def _coerce_output_dir(cls, value: Any) -> Path:
+    def _coerce_output_dir(cls, value: str | Path | None) -> Path:
         if value is None or value == "":
             return Path("artifacts").expanduser()
         return Path(value).expanduser()
 
 
 def load_settings() -> Settings:
-    raw: Dict[str, Any] = {}
+    raw: dict[str, object] = {}
     for field_name in Settings.model_fields:
         value = _dynaconf_settings.get(field_name, default=None)
         if value is not None:
