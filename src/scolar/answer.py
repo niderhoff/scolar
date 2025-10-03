@@ -3,8 +3,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from textwrap import dedent
-
-from openai import AsyncOpenAI
+from typing import Protocol
 
 from .config import Settings
 from .pipeline import ProcessedPage
@@ -67,8 +66,23 @@ def _build_context(pages: list[ProcessedPage], limit: int) -> str:
     return "\n\n".join(sections)
 
 
+class _SupportsOutputText(Protocol):
+    output_text: str
+
+
+class _ResponsesClient(Protocol):
+    async def create(self, **kwargs: object) -> _SupportsOutputText:
+        """Create a completion for the given prompt."""
+
+
+class SynthesisClient(Protocol):
+    @property
+    def responses(self) -> _ResponsesClient:
+        """Return the interface used to create LLM responses."""
+
+
 async def synthesize_answer(
-    client: AsyncOpenAI,
+    client: SynthesisClient,
     settings: Settings,
     research_prompt: str,
     pages: list[ProcessedPage],
@@ -119,9 +133,7 @@ async def synthesize_answer(
         logger.error("OpenAI synthesis request failed: %s", exc)
         return None
 
-    raw_output = (
-        response.output_text.strip() if hasattr(response, "output_text") else ""
-    )
+    raw_output = str(getattr(response, "output_text", "")).strip()
     if not raw_output:
         logger.error("Empty synthesis response from model")
         return None
@@ -129,4 +141,9 @@ async def synthesize_answer(
     return SynthesisResult(answer=raw_output, ordered_pages=selected)
 
 
-__all__ = ["SYNTHESIS_SYSTEM_PROMPT", "SynthesisResult", "synthesize_answer"]
+__all__ = [
+    "SYNTHESIS_SYSTEM_PROMPT",
+    "SynthesisClient",
+    "SynthesisResult",
+    "synthesize_answer",
+]

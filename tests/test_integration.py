@@ -21,7 +21,7 @@ from scolar.models import (
     RecommendedLink,
     Score,
 )
-from scolar.pipeline import ProcessedPage, gather_pages
+from scolar.pipeline import gather_pages
 
 
 @dataclass

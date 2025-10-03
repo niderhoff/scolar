@@ -7,11 +7,12 @@ import logging
 import sys
 from collections.abc import Iterable
 from pathlib import Path
+from typing import cast
 
 import httpx
 from openai import AsyncOpenAI
 
-from .answer import SynthesisResult, synthesize_answer
+from .answer import SynthesisClient, SynthesisResult, synthesize_answer
 from .config import load_settings
 from .pipeline import ProcessedPage, gather_pages
 from .report import build_json_record, render_report
@@ -107,7 +108,7 @@ async def run_async(args: argparse.Namespace) -> int:
             )
             if results:
                 synthesis = await synthesize_answer(
-                    llm_client,
+                    cast(SynthesisClient, llm_client),
                     settings,
                     args.prompt,
                     results,

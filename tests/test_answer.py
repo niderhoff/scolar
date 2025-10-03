@@ -23,14 +23,18 @@ class _FakeResponses:
         self.payload = payload
         self.calls: list[dict] = []
 
-    async def create(self, **kwargs) -> _FakeLLMResponse:  # noqa: ANN003, ANN204
+    async def create(self, **kwargs: object) -> _FakeLLMResponse:  # noqa: ANN204
         self.calls.append(kwargs)
         return _FakeLLMResponse(output_text=self.payload)
 
 
 class _FakeLLMClient:
     def __init__(self, payload: str) -> None:
-        self.responses = _FakeResponses(payload)
+        self._responses = _FakeResponses(payload)
+
+    @property
+    def responses(self) -> _FakeResponses:
+        return self._responses
 
 
 def _settings(

@@ -85,8 +85,13 @@ class PageCache:
     ) -> None:
         page_dict = page_to_dict(page)
         markdown_path_raw = page_dict.get("markdown_path")
-        if markdown_path_raw:
+        path_obj: Path | None = None
+        if isinstance(markdown_path_raw, Path):
+            path_obj = markdown_path_raw
+        elif isinstance(markdown_path_raw, str) and markdown_path_raw:
             path_obj = Path(markdown_path_raw)
+
+        if path_obj is not None:
             try:
                 relative = path_obj.relative_to(self._settings.output_dir)
                 page_dict["markdown_path"] = str(relative)

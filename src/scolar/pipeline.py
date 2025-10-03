@@ -108,7 +108,7 @@ async def gather_pages(
     if tasks:
         completed = await asyncio.gather(*tasks, return_exceptions=True)
         for url, outcome in zip(task_urls, completed, strict=False):
-            if isinstance(outcome, Exception):
+            if isinstance(outcome, BaseException):
                 logger.error("Unhandled error processing URL %s", url, exc_info=outcome)
                 continue
             if outcome:
