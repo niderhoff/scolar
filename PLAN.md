@@ -49,6 +49,8 @@
 - [x] Added GitHub Actions workflow that syncs dependencies with `uv` and runs `ruff check` plus `mypy` on pushes and pull requests.
 - [x] Extended CI workflow to execute `uv run pytest` alongside lint and type checks.
 - [x] Verified `_build_slug` hash suffix logic and ensured duplicate-title collision coverage via `tests/test_storage.py` on October 3, 2025.
+- [x] Added a synthesis stage that orders assessed pages by prompt fit and technical depth, then prompts the LLM for a sourced final answer (October 3, 2025).
+- [x] Ensured console and JSON outputs list pages in the same relevance order used during final answer synthesis (October 3, 2025).
 
 ## Next Steps
 
@@ -59,5 +61,8 @@
 
 ## New Features
 
+- [x] add answer step that will actually answer the prompt given the files ordered by relevancy and technical depth.
+- [ ] between crawling links and answer step I want the agent to select the best pages by relevancy, but also summarize all sentiments in each page (if they relate to the question).
 - [ ] add a search query generator that will given the prompt create various search queries that help discover links to answer the question.
 - [ ] add a link relevancy scoring function that will evaluate a link for relevancy to the initial prompt and to the generated search queries. (for example making sure that when we search about Tool v5.x we don't include links to Tool v4.x, or similar named tools from other areas of technology etc.)
+- [ ] create a crawler that will crawl outbound links and link them in a knowledge graph; the knowledge graph should then be able to be traversed for the summary step at the end to find out which pages relate well to question & follow up questions.

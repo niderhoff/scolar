@@ -12,3 +12,5 @@ openai_model = "gpt-4.1-mini"
 openai_temperature = 0.2
 openai_timeout = 30.0
 llm_concurrency = 1
+final_answer_max_pages = 5
+final_answer_excerpt_chars = 1500

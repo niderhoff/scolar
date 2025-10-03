@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+from scolar.answer import SynthesisResult
 from scolar.config import Settings
 from scolar.main import run_async
 from scolar.models import (
@@ -97,6 +98,16 @@ async def test_run_async_outputs_markdown_and_json(
 
     monkeypatch.setattr("scolar.main.gather_pages", fake_gather_pages)
 
+    async def fake_synthesize_answer(llm_client, settings, research_prompt, pages):  # noqa: ANN001, ANN202
+        assert llm_client is dummy_llm
+        assert research_prompt == "Test prompt"
+        assert pages == [processed]
+        return SynthesisResult(
+            answer="Final synthesized answer", ordered_pages=[processed]
+        )
+
+    monkeypatch.setattr("scolar.main.synthesize_answer", fake_synthesize_answer)
+
     json_path = tmp_path / "report.json"
     args = argparse.Namespace(
         prompt="Test prompt",
@@ -111,6 +122,7 @@ async def test_run_async_outputs_markdown_and_json(
     assert exit_code == 0
 
     output = capsys.readouterr().out
+    assert "Final synthesized answer" in output
     assert "Example Page" in output
     assert "Summary text" in output
 
@@ -120,3 +132,5 @@ async def test_run_async_outputs_markdown_and_json(
     assert (
         data["pages"][0]["recommended_links"][0]["url"] == "https://example.com/follow"
     )
+    assert data["final_answer"] == "Final synthesized answer"
+    assert data["sources_consulted"][0]["title"] == "Example Page"

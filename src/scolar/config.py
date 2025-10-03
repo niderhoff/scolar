@@ -35,6 +35,8 @@ class Settings(BaseModel):
     openai_temperature: float = Field(default=0.2, ge=0.0)
     openai_timeout: float = Field(default=30.0, ge=1.0)
     llm_concurrency: int = Field(default=1, ge=1)
+    final_answer_max_pages: int = Field(default=5, ge=1)
+    final_answer_excerpt_chars: int = Field(default=1_500, ge=200)
 
     model_config = ConfigDict(validate_assignment=True)
 

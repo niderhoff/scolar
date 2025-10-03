@@ -11,8 +11,9 @@ from pathlib import Path
 import httpx
 from openai import AsyncOpenAI
 
+from .answer import SynthesisResult, synthesize_answer
 from .config import load_settings
-from .pipeline import gather_pages
+from .pipeline import ProcessedPage, gather_pages
 from .report import build_json_record, render_report
 
 logger = logging.getLogger(__name__)
@@ -83,6 +84,9 @@ async def run_async(args: argparse.Namespace) -> int:
         logger.error("At least one URL must be provided via --url or --urls-file")
         return 2
 
+    results: list[ProcessedPage] = []
+    synthesis: SynthesisResult | None = None
+
     async with httpx.AsyncClient(
         headers={"User-Agent": settings.user_agent}
     ) as http_client:
@@ -95,6 +99,13 @@ async def run_async(args: argparse.Namespace) -> int:
                 http_client=http_client,
                 llm_client=llm_client,
             )
+            if results:
+                synthesis = await synthesize_answer(
+                    llm_client,
+                    settings,
+                    args.prompt,
+                    results,
+                )
         finally:
             close = getattr(llm_client, "close", None)
             if callable(close):
@@ -107,16 +118,54 @@ async def run_async(args: argparse.Namespace) -> int:
         return 1
 
     separator = "\n" + "=" * 80 + "\n"
-    output = separator.join(
-        render_report(item.page, item.assessment) for item in results
+    sections: list[str] = []
+    ordered_results: list[ProcessedPage] = list(results)
+
+    if synthesis:
+        prioritized = list(synthesis.ordered_pages)
+        prioritized_ids = {id(item) for item in prioritized}
+        remaining = [item for item in results if id(item) not in prioritized_ids]
+        ordered_results = prioritized + remaining
+
+    if synthesis:
+        lines = ["# Final Answer", "", synthesis.answer.strip()]
+        if synthesis.ordered_pages:
+            lines.extend(["", "## Sources Consulted"])
+            for index, item in enumerate(synthesis.ordered_pages, start=1):
+                lines.append(
+                    (
+                        f"- Page {index}: {item.page.title} ({item.page.url}) - "
+                        f"prompt fit {item.assessment.prompt_fit.rating}/5, "
+                        f"technical depth {item.assessment.technical_depth.rating}/5"
+                    )
+                )
+        sections.append("\n".join(lines).strip())
+
+    sections.extend(
+        render_report(item.page, item.assessment) for item in ordered_results
     )
-    print(output)
+
+    print(separator.join(sections))
 
     if args.json_output:
         payload = {
             "prompt": args.prompt,
+            "final_answer": synthesis.answer if synthesis else None,
+            "sources_consulted": [
+                {
+                    "page_number": index,
+                    "title": item.page.title,
+                    "url": item.page.url,
+                    "prompt_fit": item.assessment.prompt_fit.rating,
+                    "technical_depth": item.assessment.technical_depth.rating,
+                }
+                for index, item in enumerate(synthesis.ordered_pages, start=1)
+            ]
+            if synthesis
+            else [],
             "pages": [
-                build_json_record(item.page, item.assessment) for item in results
+                build_json_record(item.page, item.assessment)
+                for item in ordered_results
             ],
         }
         json_path = args.json_output.expanduser()
