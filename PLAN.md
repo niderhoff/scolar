@@ -53,5 +53,5 @@
 
 1. [ ] Add optional structured logging configuration if deeper observability is required.
 2. [ ] Consider snapshot-based assertions for large markdown outputs once additional report sections are introduced.
-3. [ ] Evaluate adding a static type checker (e.g., mypy or pyright) to enforce stricter annotations in CI.
-4. [ ] Audit remaining modules for `collections.abc` usage to ensure consistency with modern type hints.
+3. [x] Evaluate adding a static type checker (e.g., mypy or pyright) to enforce stricter annotations in CI (confirmed mypy already runs via CI workflow and pre-commit).
+4. [x] Audit remaining modules for `collections.abc` usage to ensure consistency with modern type hints (confirmed only `main.py` and integration tests import `Iterable` from `collections.abc`).
