@@ -15,6 +15,7 @@ from .answer import SynthesisResult, synthesize_answer
 from .config import load_settings
 from .pipeline import ProcessedPage, gather_pages
 from .report import build_json_record, render_report
+from .search import SearchExpansion, generate_search_queries, render_search_expansion
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +74,14 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         action="store_true",
         help="Ignore cached pages and force fresh fetches",
     )
+    parser.add_argument(
+        "--suggest-queries",
+        action="store_true",
+        help=(
+            "Generate expanded search queries for the prompt before processing URLs. "
+            "If no URLs are provided, only the suggested queries are output."
+        ),
+    )
     parser.add_argument("--verbose", action="store_true", help="Enable debug logging")
     return parser.parse_args(argv)
 
@@ -85,33 +94,42 @@ async def run_async(args: argparse.Namespace) -> int:
         settings.output_dir = args.output_dir.expanduser()
 
     urls = _read_urls(args.urls, args.urls_file)
-    if not urls:
+    if not urls and not args.suggest_queries:
         logger.error("At least one URL must be provided via --url or --urls-file")
         return 2
 
     results: list[ProcessedPage] = []
     synthesis: SynthesisResult | None = None
+    search_plan: SearchExpansion | None = None
 
     async with httpx.AsyncClient(
         headers={"User-Agent": settings.user_agent}
     ) as http_client:
         llm_client = AsyncOpenAI(timeout=settings.openai_timeout)
         try:
-            results = await gather_pages(
-                urls,
-                args.prompt,
-                settings=settings,
-                http_client=http_client,
-                llm_client=llm_client,
-                refresh_cache=args.refresh_cache,
-            )
-            if results:
-                synthesis = await synthesize_answer(
+            if args.suggest_queries:
+                search_plan = await generate_search_queries(
                     llm_client,
                     settings,
                     args.prompt,
-                    results,
                 )
+
+            if urls:
+                results = await gather_pages(
+                    urls,
+                    args.prompt,
+                    settings=settings,
+                    http_client=http_client,
+                    llm_client=llm_client,
+                    refresh_cache=args.refresh_cache,
+                )
+                if results:
+                    synthesis = await synthesize_answer(
+                        llm_client,
+                        settings,
+                        args.prompt,
+                        results,
+                    )
         finally:
             close = getattr(llm_client, "close", None)
             if callable(close):
@@ -119,12 +137,39 @@ async def run_async(args: argparse.Namespace) -> int:
                 if asyncio.iscoroutine(maybe_coro):
                     await maybe_coro
 
+    if not urls and search_plan:
+        section = render_search_expansion(search_plan)
+        print(section)
+        if args.json_output:
+            payload = {
+                "prompt": args.prompt,
+                "final_answer": None,
+                "sources_consulted": [],
+                "pages": [],
+                "search_queries": search_plan.to_dict(),
+            }
+            json_path = args.json_output.expanduser()
+            json_path.parent.mkdir(parents=True, exist_ok=True)
+            json_path.write_text(
+                json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8"
+            )
+            logger.info("Wrote JSON summary to %s", json_path)
+        return 0
+
+    if not urls and not search_plan:
+        logger.error("Failed to generate search queries for the provided prompt")
+        return 1
+
     if not results:
+        if search_plan:
+            print(render_search_expansion(search_plan))
         logger.error("No pages processed successfully")
         return 1
 
     separator = "\n" + "=" * 80 + "\n"
     sections: list[str] = []
+    if search_plan:
+        sections.append(render_search_expansion(search_plan))
     ordered_results: list[ProcessedPage] = list(results)
 
     if synthesis:
@@ -151,7 +196,10 @@ async def run_async(args: argparse.Namespace) -> int:
         render_report(item.page, item.assessment) for item in ordered_results
     )
 
-    print(separator.join(sections))
+    if len(sections) == 1:
+        print(sections[0])
+    else:
+        print(separator.join(sections))
 
     if args.json_output:
         payload = {
@@ -173,6 +221,7 @@ async def run_async(args: argparse.Namespace) -> int:
                 build_json_record(item.page, item.assessment)
                 for item in ordered_results
             ],
+            "search_queries": search_plan.to_dict() if search_plan else None,
         }
         json_path = args.json_output.expanduser()
         json_path.parent.mkdir(parents=True, exist_ok=True)

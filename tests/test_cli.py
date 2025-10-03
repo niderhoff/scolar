@@ -19,6 +19,7 @@ from scolar.models import (
     Score,
 )
 from scolar.pipeline import ProcessedPage
+from scolar.search import SearchExpansion
 
 
 class _DummyAsyncClient:
@@ -123,6 +124,7 @@ async def test_run_async_outputs_markdown_and_json(
         json_output=json_path,
         verbose=False,
         refresh_cache=False,
+        suggest_queries=False,
     )
 
     exit_code = await run_async(args)
@@ -141,3 +143,61 @@ async def test_run_async_outputs_markdown_and_json(
     )
     assert data["final_answer"] == "Final synthesized answer"
     assert data["sources_consulted"][0]["title"] == "Example Page"
+    assert data["search_queries"] is None
+
+
+@pytest.mark.asyncio
+async def test_run_async_supports_search_queries_only(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    output_dir = tmp_path / "artifacts"
+    settings = Settings(output_dir=output_dir)
+
+    monkeypatch.setattr("scolar.main.load_settings", lambda: settings)
+    monkeypatch.setattr("scolar.main.httpx.AsyncClient", _DummyAsyncClient)
+
+    dummy_llm = _DummyLLMClient()
+    monkeypatch.setattr("scolar.main.AsyncOpenAI", lambda timeout: dummy_llm)
+
+    plan = SearchExpansion(
+        primary_query="ai safety policy timeline",
+        expanded_queries=["ai safety regulation timeline", "ai policy roadmap"],
+        focus_topics=["regulation milestones"],
+        site_filters=["site:whitehouse.gov"],
+        notes=None,
+    )
+
+    async def fake_generate(llm_client, settings, prompt):  # noqa: ANN001, ANN202
+        assert prompt == "AI safety"
+        assert llm_client is dummy_llm
+        return plan
+
+    monkeypatch.setattr("scolar.main.generate_search_queries", fake_generate)
+
+    async def fail_gather(*_args, **_kwargs):  # noqa: ANN002, ANN003, ANN202
+        raise AssertionError("gather_pages should not be called when no URLs provided")
+
+    monkeypatch.setattr("scolar.main.gather_pages", fail_gather)
+
+    args = argparse.Namespace(
+        prompt="AI safety",
+        urls=[],
+        urls_file=None,
+        output_dir=None,
+        json_output=tmp_path / "queries.json",
+        verbose=False,
+        refresh_cache=False,
+        suggest_queries=True,
+    )
+
+    exit_code = await run_async(args)
+    assert exit_code == 0
+
+    output = capsys.readouterr().out
+    assert "Suggested Search Queries" in output
+    assert "ai safety regulation timeline" in output
+
+    data = json.loads(args.json_output.read_text(encoding="utf-8"))
+    assert data["search_queries"]["primary_query"] == plan.primary_query
+    assert data["pages"] == []
+    assert data["final_answer"] is None

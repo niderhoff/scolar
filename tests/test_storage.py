@@ -102,4 +102,3 @@ async def test_store_markdown_idempotent_for_same_url(tmp_path: Path) -> None:
 
     assert first == second
     assert second.read_text(encoding="utf-8") == "Updated"
-
