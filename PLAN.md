@@ -67,6 +67,7 @@
 6. [ ] Add cache hit/miss metrics and periodic cleanup of expired entries for long-lived research runs.
 7. [ ] Wire the generated search query plan into an automated discovery step that populates candidate URLs before assessment.
 8. [ ] Surface workflow progress/telemetry (e.g., streaming events or verbose step logging) to improve long-running run visibility.
+9. [x] Remove unused `FetchError` exception in src/scolar/fetcher.py once fetcher either raises or logs its own errors more explicitly (completed October 3, 2025).
 
 ## New Features
 

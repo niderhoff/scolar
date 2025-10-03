@@ -10,10 +10,6 @@ from .config import Settings
 logger = logging.getLogger(__name__)
 
 
-class FetchError(Exception):
-    pass
-
-
 async def fetch_html(
     url: str,
     client: httpx.AsyncClient,
@@ -76,4 +72,4 @@ async def fetch_html(
     return None
 
 
-__all__ = ["fetch_html", "FetchError"]
+__all__ = ["fetch_html"]
