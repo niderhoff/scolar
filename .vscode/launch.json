@@ -1,0 +1,15 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug Scolar Prompt",
+      "type": "python",
+      "request": "launch",
+      "module": "scolar.main",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "args": ["--prompt", "is GLM 4.6 a good model for coding agents?"],
+      "justMyCode": false
+    }
+  ]
+}
