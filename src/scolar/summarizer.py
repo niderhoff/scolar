@@ -4,7 +4,6 @@ import asyncio
 import json
 import logging
 from textwrap import dedent
-from typing import Optional
 
 from openai import AsyncOpenAI
 
@@ -38,8 +37,8 @@ async def assess_page(
     research_prompt: str,
     page: PageContent,
     *,
-    semaphore: Optional[asyncio.Semaphore] = None,
-) -> Optional[PageAssessment]:
+    semaphore: asyncio.Semaphore | None = None,
+) -> PageAssessment | None:
     links_payload = _links_payload(page, settings.max_links_inspected)
     prompt = dedent(
         f"""

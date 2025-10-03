@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 from pydantic import BaseModel, Field, HttpUrl, ValidationError
 
@@ -20,7 +19,7 @@ class PageContent:
     markdown: str
     links: list[LinkInfo]
     truncated: bool
-    markdown_path: Optional[Path] = None
+    markdown_path: Path | None = None
 
 
 @dataclass(slots=True)

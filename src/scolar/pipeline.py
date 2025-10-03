@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import dataclass
-from typing import Optional
 
 import httpx
 from openai import AsyncOpenAI
@@ -31,9 +30,9 @@ async def process_url(
     http_client: httpx.AsyncClient,
     llm_client: AsyncOpenAI,
     settings: Settings,
-    fetch_semaphore: Optional[asyncio.Semaphore] = None,
-    llm_semaphore: Optional[asyncio.Semaphore] = None,
-) -> Optional[ProcessedPage]:
+    fetch_semaphore: asyncio.Semaphore | None = None,
+    llm_semaphore: asyncio.Semaphore | None = None,
+) -> ProcessedPage | None:
     html = await fetch_html(url, http_client, settings, semaphore=fetch_semaphore)
     if not html:
         return None

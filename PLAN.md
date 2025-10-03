@@ -45,9 +45,11 @@
 ## Recent Updates
 
 - [x] Eliminated `typing.Any` usages in configuration and integration tests to tighten static type coverage.
+- [x] Migrated legacy generics (`Dict`, `List`, `Optional`) to builtin `dict`, `list`, and union syntax across runtime and tests.
 
 ## Next Steps
 
 1. [ ] Add optional structured logging configuration if deeper observability is required.
 2. [ ] Consider snapshot-based assertions for large markdown outputs once additional report sections are introduced.
 3. [ ] Evaluate adding a static type checker (e.g., mypy or pyright) to enforce stricter annotations in CI.
+4. [ ] Audit remaining modules for `collections.abc` usage to ensure consistency with modern type hints.

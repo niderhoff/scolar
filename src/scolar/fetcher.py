@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Optional
 
 import httpx
 
@@ -20,8 +19,8 @@ async def fetch_html(
     client: httpx.AsyncClient,
     settings: Settings,
     *,
-    semaphore: Optional[asyncio.Semaphore] = None,
-) -> Optional[str]:
+    semaphore: asyncio.Semaphore | None = None,
+) -> str | None:
     """Fetch a URL as HTML text with retries and basic content validation."""
 
     attempt = 0

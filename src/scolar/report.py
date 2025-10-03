@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Dict
-
 from .models import PageAssessment, PageContent
 
 
@@ -33,7 +31,7 @@ def render_report(page: PageContent, assessment: PageAssessment) -> str:
 
 def build_json_record(
     page: PageContent, assessment: PageAssessment
-) -> Dict[str, object]:
+) -> dict[str, object]:
     """Return a JSON-serializable dictionary representing the processed page."""
 
     return {

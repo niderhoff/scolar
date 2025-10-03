@@ -5,8 +5,8 @@ import asyncio
 import json
 import logging
 import sys
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable, List
 
 import httpx
 from openai import AsyncOpenAI
@@ -23,7 +23,7 @@ def _configure_logging(verbose: bool) -> None:
     logging.basicConfig(level=level, format="%(levelname)s %(name)s - %(message)s")
 
 
-def _read_urls(urls: Iterable[str], urls_file: Path | None) -> List[str]:
+def _read_urls(urls: Iterable[str], urls_file: Path | None) -> list[str]:
     collection: list[str] = list(urls)
     if urls_file:
         content = urls_file.read_text(encoding="utf-8")
