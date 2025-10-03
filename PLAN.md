@@ -52,6 +52,7 @@
 - [x] Added a synthesis stage that orders assessed pages by prompt fit and technical depth, then prompts the LLM for a sourced final answer (October 3, 2025).
 - [x] Ensured console and JSON outputs list pages in the same relevance order used during final answer synthesis (October 3, 2025).
 - [x] Implemented a three-day page cache with an optional CLI refresh flag to skip cache hits when required (October 3, 2025).
+- [x] Removed an unused integration-test import flagged by CI linting to keep the suite clean (October 3, 2025).
 
 ## Next Steps
 
