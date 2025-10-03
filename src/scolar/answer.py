@@ -103,6 +103,9 @@ async def synthesize_answer(
 
         ## Remaining Gaps
         <short explanation or "None">
+
+        ## Suggest Follow-up Questions
+        - <bullet points with suggested Questions>
         """
     ).strip()
 
