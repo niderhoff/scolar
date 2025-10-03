@@ -18,6 +18,7 @@
 - [x] `summarizer.py` (LLM assessment helpers): Async wrapper around the OpenAI client enforcing JSON schema checks.
 - [x] `report.py`: Markdown and JSON rendering helpers for processed pages.
 - [x] `main.py`: CLI handling for markdown output, optional JSON export, and wiring of async pipeline components.
+- [x] `discovery.py`: Async candidate URL discovery backed by cached subreddit search for `r/localllama`.
 
 ## Data Flow
 
@@ -30,7 +31,7 @@
 
 ## Dependencies & Settings
 
-- [x] Libraries: `httpx[http2]`, `beautifulsoup4`, `html2text`, `openai`, `pydantic`, `dynaconf`, test deps `pytest`, `pytest-asyncio` (optional `tenacity` for retries).
+- [x] Libraries: `httpx[http2]`, `beautifulsoup4`, `html2text`, `openai`, `pydantic`, `dynaconf`, `llama-index-core`, `llama-index-utils-workflow`, test deps `pytest`, `pytest-asyncio` (optional `tenacity` for retries).
 - [x] Configuration: Dynaconf `settings.toml` + environment overrides validated through Pydantic and CLI flags for concurrency, model name, truncation limits, and output directory.
 - [x] Logging: `logging.basicConfig` currently used; structured logging via `dictConfig` remains future work.
 
@@ -55,7 +56,10 @@
 - [x] Added an LLM-powered search query generator with a `--suggest-queries` CLI flag and JSON export (October 3, 2025).
 - [x] Refactored the main CLI orchestration to run on LlamaIndex Workflows, keeping reporting behaviour identical while enabling future step fan-out (October 3, 2025).
 - [x] Added `llama-index-core` (and workflow runtime dependencies) via `uv add` to support the new orchestrator (October 3, 2025).
+- [x] Added `llama-index-utils-workflow` and helper to render the research workflow graph to `workflow.html` via `draw_all_possible_flows` (October 3, 2025).
+- [x] Introduced a `visualize-workflow` CLI command that emits the HTML diagram using the new helper (October 3, 2025).
 - [x] Instrumented each workflow step with logging to surface event order and execution details before final output (October 3, 2025).
+- [x] Introduced a discovery workflow step that queries `r/localllama`, caches search hits for three days, and feeds discovered URLs into page gathering when none are provided by the user (October 3, 2025).
 
 ## Next Steps
 
@@ -65,9 +69,12 @@
 4. [x] Audit remaining modules for `collections.abc` usage to ensure consistency with modern type hints (confirmed only `main.py` and integration tests import `Iterable` from `collections.abc`).
 5. [ ] Expose cache TTL and artifact directory overrides via CLI flags to support varied research horizons and storage layouts.
 6. [ ] Add cache hit/miss metrics and periodic cleanup of expired entries for long-lived research runs.
-7. [ ] Wire the generated search query plan into an automated discovery step that populates candidate URLs before assessment.
+7. [x] Wire the generated search query plan into an automated discovery step that populates candidate URLs before assessment (completed October 3, 2025).
 8. [ ] Surface workflow progress/telemetry (e.g., streaming events or verbose step logging) to improve long-running run visibility.
 9. [x] Remove unused `FetchError` exception in src/scolar/fetcher.py once fetcher either raises or logs its own errors more explicitly (completed October 3, 2025).
+10. [ ] Expand discovery sources beyond Reddit (e.g., curated blogs or broader web search) while reusing caching semantics and respecting site-specific query parameters.
+11. [x] Expose the workflow visualization helper via CLI command and add regression coverage that the HTML artifact is generated (October 3, 2025).
+12. [ ] Document the visualization workflow command usage in README and consider adding sample output.
 
 ## New Features
 
@@ -75,4 +82,5 @@
 - [ ] modify the answer synthesis with another additional step that will list potential followup research questions, depending on the context it has seen (derived from things that were mentioned in the webpages).
 - [ ] between crawling links and answer step I want the agent to preprocess each link by summarizing and collecting all different opinions and facts in each page (if they relate to the question).
 - [x] add a search query generator that will given the prompt create various search queries that help discover links to answer the question.
+- [x] add a Reddit-backed URL discovery stage that automatically seeds the workflow when no URLs are supplied (October 3, 2025).
 - [ ] create a crawler that will crawl outbound links and link them in a knowledge graph; the knowledge graph should then be able to be traversed for the summary step at the end to find out which pages relate well to question & follow up questions.

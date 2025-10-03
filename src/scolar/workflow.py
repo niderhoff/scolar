@@ -6,6 +6,7 @@ from typing import Protocol, runtime_checkable
 
 import httpx
 from llama_index.core.workflow import Event, StartEvent, StopEvent, Workflow, step
+from llama_index.utils.workflow import draw_all_possible_flows
 from openai import AsyncOpenAI
 from pydantic import Field
 
@@ -35,8 +36,7 @@ class GenerateSearchQueriesFn(Protocol):
         client: AsyncOpenAI,
         settings: Settings,
         research_prompt: str,
-    ) -> SearchExpansion | None:
-        ...
+    ) -> SearchExpansion | None: ...
 
 
 @runtime_checkable
@@ -50,8 +50,19 @@ class GatherPagesFn(Protocol):
         http_client: httpx.AsyncClient,
         llm_client: AsyncOpenAI,
         refresh_cache: bool,
-    ) -> list[ProcessedPage]:
-        ...
+    ) -> list[ProcessedPage]: ...
+
+
+@runtime_checkable
+class DiscoverCandidateUrlsFn(Protocol):
+    async def __call__(
+        self,
+        *,
+        prompt: str,
+        http_client: httpx.AsyncClient,
+        settings: Settings,
+        refresh_cache: bool,
+    ) -> list[str]: ...
 
 
 @runtime_checkable
@@ -62,8 +73,7 @@ class SynthesizeAnswerFn(Protocol):
         settings: Settings,
         research_prompt: str,
         pages: list[ProcessedPage],
-    ) -> SynthesisResult | None:
-        ...
+    ) -> SynthesisResult | None: ...
 
 
 class ResearchStartEvent(StartEvent):
@@ -74,6 +84,13 @@ class ResearchStartEvent(StartEvent):
 
 
 class ResearchPreparedEvent(Event):
+    prompt: str
+    urls: list[str] = Field(default_factory=list)
+    search_plan: SearchExpansion | None = None
+    refresh_cache: bool = False
+
+
+class CandidateUrlsEvent(Event):
     prompt: str
     urls: list[str] = Field(default_factory=list)
     search_plan: SearchExpansion | None = None
@@ -95,6 +112,7 @@ class ResearchWorkflow(Workflow):
         http_client: httpx.AsyncClient,
         llm_client: AsyncOpenAI,
         generate_search_queries_fn: GenerateSearchQueriesFn,
+        discover_candidate_urls_fn: DiscoverCandidateUrlsFn,
         gather_pages_fn: GatherPagesFn,
         synthesize_answer_fn: SynthesizeAnswerFn,
     ) -> None:
@@ -103,6 +121,7 @@ class ResearchWorkflow(Workflow):
         self._http_client = http_client
         self._llm_client = llm_client
         self._generate_search_queries = generate_search_queries_fn
+        self._discover_candidate_urls = discover_candidate_urls_fn
         self._gather_pages = gather_pages_fn
         self._synthesize_answer = synthesize_answer_fn
 
@@ -119,20 +138,6 @@ class ResearchWorkflow(Workflow):
             event.refresh_cache,
         )
 
-        if not urls and not event.suggest_queries:
-            message = "At least one URL must be provided via --url or --urls-file"
-            logger.error(message)
-            result = ResearchResult(
-                prompt=event.prompt,
-                urls=urls,
-                search_plan=None,
-                processed_pages=[],
-                synthesis=None,
-                exit_code=2,
-                errors=[message],
-            )
-            return StopEvent(result=result)
-
         search_plan: SearchExpansion | None = None
         if event.suggest_queries:
             search_plan = await self._generate_search_queries(
@@ -145,46 +150,66 @@ class ResearchWorkflow(Workflow):
                 bool(search_plan),
             )
 
-        if urls:
+        logger.info(
+            "Workflow[start]: advancing with %d urls (search_plan=%s)",
+            len(urls),
+            bool(search_plan),
+        )
+        return ResearchPreparedEvent(
+            prompt=event.prompt,
+            urls=urls,
+            search_plan=search_plan,
+            refresh_cache=event.refresh_cache,
+        )
+
+    @step(num_workers=1)
+    async def discover(
+        self, event: ResearchPreparedEvent
+    ) -> CandidateUrlsEvent | StopEvent:
+        if event.urls:
             logger.info(
-                "Workflow[start]: advancing with %d urls (search_plan=%s)",
-                len(urls),
-                bool(search_plan),
+                "Workflow[discover]: received %d pre-supplied urls",
+                len(event.urls),
             )
-            return ResearchPreparedEvent(
+            return CandidateUrlsEvent(
                 prompt=event.prompt,
-                urls=urls,
-                search_plan=search_plan,
+                urls=event.urls,
+                search_plan=event.search_plan,
                 refresh_cache=event.refresh_cache,
             )
 
-        if search_plan:
-            logger.info("Workflow[start]: emitting search plan only result")
+        urls = await self._discover_candidate_urls(
+            prompt=event.prompt,
+            http_client=self._http_client,
+            settings=self._settings,
+            refresh_cache=event.refresh_cache,
+        )
+
+        if not urls:
+            message = "No candidate URLs discovered for the provided prompt"
+            logger.error(message)
             result = ResearchResult(
                 prompt=event.prompt,
-                urls=urls,
-                search_plan=search_plan,
+                urls=[],
+                search_plan=event.search_plan,
                 processed_pages=[],
                 synthesis=None,
-                exit_code=0,
+                exit_code=3,
+                errors=[message],
             )
             return StopEvent(result=result)
 
-        message = "Failed to generate search queries for the provided prompt"
-        logger.error(message)
-        result = ResearchResult(
+        logger.info("Workflow[discover]: discovered %d candidate urls", len(urls))
+
+        return CandidateUrlsEvent(
             prompt=event.prompt,
             urls=urls,
-            search_plan=None,
-            processed_pages=[],
-            synthesis=None,
-            exit_code=1,
-            errors=[message],
+            search_plan=event.search_plan,
+            refresh_cache=event.refresh_cache,
         )
-        return StopEvent(result=result)
 
     @step(num_workers=1)
-    async def gather(self, event: ResearchPreparedEvent) -> PagesReadyEvent | StopEvent:
+    async def gather(self, event: CandidateUrlsEvent) -> PagesReadyEvent | StopEvent:
         logger.info(
             "Workflow[gather]: fetching %d urls refresh_cache=%s",
             len(event.urls),
@@ -255,10 +280,29 @@ class ResearchWorkflow(Workflow):
         return StopEvent(result=result)
 
 
+def visualize_research_workflow(
+    workflow: ResearchWorkflow,
+    *,
+    output_path: str = "workflow.html",
+    notebook: bool = False,
+    max_label_length: int | None = None,
+) -> None:
+    """Render the research workflow graph to an HTML file for inspection."""
+
+    draw_all_possible_flows(
+        workflow,
+        filename=output_path,
+        notebook=notebook,
+        max_label_length=max_label_length,
+    )
+
+
 __all__ = [
+    "CandidateUrlsEvent",
     "PagesReadyEvent",
     "ResearchPreparedEvent",
     "ResearchResult",
     "ResearchStartEvent",
     "ResearchWorkflow",
+    "visualize_research_workflow",
 ]

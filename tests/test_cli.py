@@ -10,7 +10,7 @@ import pytest
 
 from scolar.answer import SynthesisResult
 from scolar.config import Settings
-from scolar.main import run_async
+from scolar.main import run_async, run_visualize
 from scolar.models import (
     LinkInfo,
     PageAssessment,
@@ -115,6 +115,13 @@ async def test_run_async_outputs_markdown_and_json(
 
     monkeypatch.setattr("scolar.main.synthesize_answer", fake_synthesize_answer)
 
+    async def fail_discover(**_kwargs):  # noqa: ANN003, ANN202
+        raise AssertionError(
+            "discover_candidate_urls should not be invoked when URLs are provided"
+        )
+
+    monkeypatch.setattr("scolar.main.discover_candidate_urls", fail_discover)
+
     json_path = tmp_path / "report.json"
     args = argparse.Namespace(
         prompt="Test prompt",
@@ -147,7 +154,7 @@ async def test_run_async_outputs_markdown_and_json(
 
 
 @pytest.mark.asyncio
-async def test_run_async_supports_search_queries_only(
+async def test_run_async_discovers_urls_when_missing(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     output_dir = tmp_path / "artifacts"
@@ -174,17 +181,69 @@ async def test_run_async_supports_search_queries_only(
 
     monkeypatch.setattr("scolar.main.generate_search_queries", fake_generate)
 
-    async def fail_gather(*_args, **_kwargs):  # noqa: ANN002, ANN003, ANN202
-        raise AssertionError("gather_pages should not be called when no URLs provided")
+    discovered_urls = [
+        "https://www.reddit.com/r/localllama/comments/abc123/example_discussion/"
+    ]
+    discover_called = {"value": False}
 
-    monkeypatch.setattr("scolar.main.gather_pages", fail_gather)
+    async def fake_discover(*, prompt, http_client, settings, refresh_cache):  # noqa: ANN001, ANN003, ANN202
+        assert prompt == "AI safety"
+        assert isinstance(http_client, _DummyAsyncClient)
+        assert settings.output_dir == output_dir
+        assert refresh_cache is False
+        discover_called["value"] = True
+        return discovered_urls
 
+    monkeypatch.setattr("scolar.main.discover_candidate_urls", fake_discover)
+
+    page = PageContent(
+        url=discovered_urls[0],
+        title="Reddit Discussion",
+        markdown="Thread content",
+        links=[],
+        truncated=False,
+    )
+    markdown_path = output_dir / "reddit-discussion.md"
+    markdown_path.parent.mkdir(parents=True, exist_ok=True)
+    markdown_path.write_text("Thread content", encoding="utf-8")
+    page.markdown_path = markdown_path
+
+    assessment = PageAssessment(
+        summary="Thread summary",
+        technical_depth=Score(rating=3, justification="Moderate detail"),
+        prompt_fit=Score(rating=4, justification="Mostly relevant"),
+        recommended_links=[],
+    )
+
+    processed = ProcessedPage(page=page, assessment=assessment)
+
+    async def fake_gather_pages(
+        urls, prompt, *, settings, http_client, llm_client, refresh_cache
+    ):  # noqa: ANN001, ANN202
+        assert urls == discovered_urls
+        assert prompt == "AI safety"
+        assert llm_client is dummy_llm
+        assert refresh_cache is False
+        return [processed]
+
+    monkeypatch.setattr("scolar.main.gather_pages", fake_gather_pages)
+
+    async def fake_synthesize_answer(llm_client, settings, research_prompt, pages):  # noqa: ANN001, ANN202
+        assert llm_client is dummy_llm
+        assert research_prompt == "AI safety"
+        assert pages == [processed]
+        return None
+
+    monkeypatch.setattr("scolar.main.synthesize_answer", fake_synthesize_answer)
+
+    json_path = tmp_path / "queries.json"
     args = argparse.Namespace(
+        command="research",
         prompt="AI safety",
         urls=[],
         urls_file=None,
         output_dir=None,
-        json_output=tmp_path / "queries.json",
+        json_output=json_path,
         verbose=False,
         refresh_cache=False,
         suggest_queries=True,
@@ -192,12 +251,45 @@ async def test_run_async_supports_search_queries_only(
 
     exit_code = await run_async(args)
     assert exit_code == 0
+    assert discover_called["value"] is True
 
     output = capsys.readouterr().out
     assert "Suggested Search Queries" in output
     assert "ai safety regulation timeline" in output
+    assert "Reddit Discussion" in output
 
-    data = json.loads(args.json_output.read_text(encoding="utf-8"))
+    data = json.loads(json_path.read_text(encoding="utf-8"))
     assert data["search_queries"]["primary_query"] == plan.primary_query
-    assert data["pages"] == []
+    assert data["pages"][0]["url"] == discovered_urls[0]
     assert data["final_answer"] is None
+
+
+def test_run_visualize_writes_diagram(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    settings = Settings()
+    monkeypatch.setattr("scolar.main.load_settings", lambda: settings)
+
+    recorded = {"called": False}
+
+    def fake_visualize(workflow, *, output_path, notebook, max_label_length):  # noqa: ANN001
+        assert output_path == str(tmp_path / "custom.html")
+        assert notebook is False
+        assert max_label_length is None
+        (tmp_path / "custom.html").write_text("<html></html>", encoding="utf-8")
+        recorded["called"] = True
+
+    monkeypatch.setattr("scolar.main.visualize_research_workflow", fake_visualize)
+
+    args = argparse.Namespace(
+        command="visualize-workflow",
+        output=tmp_path / "custom.html",
+        max_label_length=None,
+        notebook=False,
+        verbose=False,
+    )
+
+    exit_code = run_visualize(args)
+    assert exit_code == 0
+    assert recorded["called"] is True
+    assert (tmp_path / "custom.html").exists()

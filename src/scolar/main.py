@@ -7,16 +7,22 @@ import logging
 import sys
 from collections.abc import Iterable
 from pathlib import Path
+from typing import cast
 
 import httpx
 from openai import AsyncOpenAI
 
 from .answer import synthesize_answer
 from .config import load_settings
+from .discovery import discover_candidate_urls
 from .pipeline import ProcessedPage, gather_pages
 from .report import build_json_record, render_report
 from .search import generate_search_queries, render_search_expansion
-from .workflow import ResearchResult, ResearchWorkflow
+from .workflow import (
+    ResearchResult,
+    ResearchWorkflow,
+    visualize_research_workflow,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -88,6 +94,9 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 
 
 async def run_async(args: argparse.Namespace) -> int:
+    if getattr(args, "command", "research") != "research":  # pragma: no cover
+        raise ValueError("run_async expects research command arguments")
+
     _configure_logging(args.verbose)
 
     settings = load_settings()
@@ -106,6 +115,7 @@ async def run_async(args: argparse.Namespace) -> int:
                 http_client=http_client,
                 llm_client=llm_client,
                 generate_search_queries_fn=generate_search_queries,
+                discover_candidate_urls_fn=discover_candidate_urls,
                 gather_pages_fn=gather_pages,
                 synthesize_answer_fn=synthesize_answer,
             )
@@ -209,10 +219,38 @@ async def run_async(args: argparse.Namespace) -> int:
     return result.exit_code
 
 
+def run_visualize(args: argparse.Namespace) -> int:
+    _configure_logging(args.verbose)
+
+    settings = load_settings()
+    output_path = args.output.expanduser()
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    workflow = ResearchWorkflow(
+        settings=settings,
+        http_client=cast(httpx.AsyncClient, object()),
+        llm_client=cast(AsyncOpenAI, object()),
+        generate_search_queries_fn=generate_search_queries,
+        discover_candidate_urls_fn=discover_candidate_urls,
+        gather_pages_fn=gather_pages,
+        synthesize_answer_fn=synthesize_answer,
+    )
+
+    visualize_research_workflow(
+        workflow,
+        output_path=str(output_path),
+        notebook=args.notebook,
+        max_label_length=args.max_label_length,
+    )
+
+    logger.info("Workflow visualization written to %s", output_path)
+    return 0
+
+
 def main() -> None:
     args = parse_args(sys.argv[1:])
     exit_code = asyncio.run(run_async(args))
     raise SystemExit(exit_code)
 
 
-__all__ = ["main", "run_async"]
+__all__ = ["main", "run_async", "run_visualize", "parse_args"]
