@@ -61,22 +61,21 @@
 - [x] Instrumented each workflow step with logging to surface event order and execution details before final output (October 3, 2025).
 - [x] Introduced a discovery workflow step that queries `r/localllama`, caches search hits for three days, and feeds discovered URLs into page gathering when none are provided by the user (October 3, 2025).
 - [x] Documented every runtime setting with inline descriptions in `config.py` to clarify their operational purpose (October 3, 2025).
+- [x] Added a VS Code launch configuration to debug `scolar.main` with the sample GLM 4.6 research prompt in the uv-managed environment (October 3, 2025).
 
 ## Next Steps
 
-1. [ ] Add optional structured logging configuration if deeper observability is required.
 2. [ ] Consider snapshot-based assertions for large markdown outputs once additional report sections are introduced.
 3. [x] Evaluate adding a static type checker (e.g., mypy or pyright) to enforce stricter annotations in CI (confirmed mypy already runs via CI workflow and pre-commit).
 4. [x] Audit remaining modules for `collections.abc` usage to ensure consistency with modern type hints (confirmed only `main.py` and integration tests import `Iterable` from `collections.abc`).
-5. [ ] Expose cache TTL and artifact directory overrides via CLI flags to support varied research horizons and storage layouts.
 6. [ ] Add cache hit/miss metrics and periodic cleanup of expired entries for long-lived research runs.
 7. [x] Wire the generated search query plan into an automated discovery step that populates candidate URLs before assessment (completed October 3, 2025).
 8. [ ] Surface workflow progress/telemetry (e.g., streaming events or verbose step logging) to improve long-running run visibility.
 9. [x] Remove unused `FetchError` exception in src/scolar/fetcher.py once fetcher either raises or logs its own errors more explicitly (completed October 3, 2025).
 10. [ ] Expand discovery sources beyond Reddit (e.g., curated blogs or broader web search) while reusing caching semantics and respecting site-specific query parameters.
 11. [x] Expose the workflow visualization helper via CLI command and add regression coverage that the HTML artifact is generated (October 3, 2025).
-12. [ ] Document the visualization workflow command usage in README and consider adding sample output.
-13. [ ] Sync the new inline setting documentation into user-facing docs or CLI help to keep explanations consistent.
+12. [ ] Extend `launch.json` coverage for additional prompts or workflow entrypoints as debugging needs grow.
+13. [ ] Expose a public helper for fetch semaphore sizing so tests no longer need to inspect private attributes.
 
 ## New Features
 

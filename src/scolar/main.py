@@ -253,4 +253,8 @@ def main() -> None:
     raise SystemExit(exit_code)
 
 
+if __name__ == "__main__":
+    main()
+
+
 __all__ = ["main", "run_async", "run_visualize", "parse_args"]

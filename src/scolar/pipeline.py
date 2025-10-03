@@ -9,11 +9,12 @@ from openai import AsyncOpenAI
 
 from .cache import PageCache
 from .config import Settings
-from .fetcher import fetch_html
+from .fetcher import HtmlDocument, RedditThread, fetch_resource
 from .models import PageAssessment, PageContent
 from .parser import parse_html
 from .storage import store_markdown
 from .summarizer import assess_page
+from .threads import convert_to_thread_path
 
 logger = logging.getLogger(__name__)
 
@@ -35,11 +36,28 @@ async def process_url(
     fetch_semaphore: asyncio.Semaphore | None = None,
     llm_semaphore: asyncio.Semaphore | None = None,
 ) -> ProcessedPage | None:
-    html = await fetch_html(url, http_client, settings, semaphore=fetch_semaphore)
-    if not html:
+    resource = await fetch_resource(
+        url,
+        http_client,
+        settings,
+        semaphore=fetch_semaphore,
+    )
+    if resource is None:
         return None
 
-    page = await asyncio.to_thread(parse_html, url, html, settings)
+    if isinstance(resource, HtmlDocument):
+        page = await asyncio.to_thread(parse_html, url, resource.html, settings)
+    elif isinstance(resource, RedditThread):
+        page = await asyncio.to_thread(
+            _convert_reddit_thread,
+            resource,
+            settings,
+        )
+    else:
+        logger.error(
+            "Unsupported resource type for %s: %s", url, type(resource).__name__
+        )
+        return None
 
     markdown_path = await store_markdown(page, settings)
     page.markdown_path = markdown_path
@@ -130,6 +148,24 @@ async def gather_pages(
             ordered_results.append(result)
 
     return ordered_results
+
+
+def _convert_reddit_thread(thread: RedditThread, settings: Settings) -> PageContent:
+    lines = convert_to_thread_path(thread)
+    markdown = "\n".join(lines).strip()
+
+    truncated = False
+    if len(markdown) > settings.max_markdown_chars:
+        markdown = markdown[: settings.max_markdown_chars].rsplit("\n", 1)[0]
+        truncated = True
+
+    return PageContent(
+        url=thread.url,
+        title=thread.title,
+        markdown=markdown,
+        links=[],
+        truncated=truncated,
+    )
 
 
 __all__ = ["ProcessedPage", "process_url", "gather_pages"]

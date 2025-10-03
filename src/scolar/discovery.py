@@ -17,9 +17,7 @@ from .config import Settings
 
 logger = logging.getLogger(__name__)
 
-_REDDIT_SEARCH_ENDPOINT: Final[str] = (
-    "https://www.reddit.com/r/localllama/search.json"
-)
+_REDDIT_SEARCH_ENDPOINT: Final[str] = "https://www.reddit.com/r/localllama/search.json"
 _SEARCH_CACHE_DIRNAME: Final[str] = "search_hits"
 _DEFAULT_SEARCH_TTL: Final[timedelta] = timedelta(days=3)
 _DEFAULT_RESULT_LIMIT: Final[int] = 10
@@ -157,11 +155,7 @@ async def _search_reddit_localllama(
         logger.error("Failed to decode Reddit search response for %r", prompt)
         return []
 
-    children = (
-        data.get("data", {}).get("children")
-        if isinstance(data, dict)
-        else None
-    )
+    children = data.get("data", {}).get("children") if isinstance(data, dict) else None
     if not isinstance(children, list):
         logger.warning("Unexpected Reddit search payload for %r", prompt)
         return []
