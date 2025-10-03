@@ -58,15 +58,20 @@ async def _get_with_retries(
         attempt += 1
         try:
             logger.info("Fetching %s (attempt %s/%s)", url, attempt, max_attempts)
-            request_args = {
-                "headers": {"User-Agent": settings.user_agent},
-                "timeout": settings.request_timeout,
-            }
+            headers = {"User-Agent": settings.user_agent}
             if semaphore:
                 async with semaphore:
-                    response = await client.get(url, **request_args)
+                    response = await client.get(
+                        url,
+                        headers=headers,
+                        timeout=settings.request_timeout,
+                    )
             else:
-                response = await client.get(url, **request_args)
+                response = await client.get(
+                    url,
+                    headers=headers,
+                    timeout=settings.request_timeout,
+                )
 
             response.raise_for_status()
             return response
@@ -118,7 +123,9 @@ async def fetch_html(
 
     content_type = response.headers.get("content-type", "").lower()
     if "text/html" not in content_type and "application/xhtml+xml" not in content_type:
-        logger.warning("Skipping %s due to unsupported content-type: %s", url, content_type)
+        logger.warning(
+            "Skipping %s due to unsupported content-type: %s", url, content_type
+        )
         return None
 
     return response.text
@@ -152,7 +159,9 @@ def _normalize_reddit_json_url(url: str) -> str:
 def _parse_reddit_comment(payload: Mapping[str, object]) -> RedditComment:
     identifier = str(payload.get("id", ""))
     author_value = payload.get("author")
-    author = str(author_value) if isinstance(author_value, str) and author_value else None
+    author = (
+        str(author_value) if isinstance(author_value, str) and author_value else None
+    )
 
     score_value = payload.get("score")
     score = int(score_value) if isinstance(score_value, int) else None
@@ -215,7 +224,9 @@ async def fetch_reddit(
 
     post_listing = payload[0]
     comments_listing = payload[1]
-    if not isinstance(post_listing, Mapping) or not isinstance(comments_listing, Mapping):
+    if not isinstance(post_listing, Mapping) or not isinstance(
+        comments_listing, Mapping
+    ):
         logger.error("Unexpected Reddit listing format for %s", url)
         return None
 
@@ -238,7 +249,9 @@ async def fetch_reddit(
 
     identifier = str(post_data.get("id", ""))
     author_value = post_data.get("author")
-    author = str(author_value) if isinstance(author_value, str) and author_value else None
+    author = (
+        str(author_value) if isinstance(author_value, str) and author_value else None
+    )
     title_value = post_data.get("title")
     title = str(title_value) if isinstance(title_value, str) else url
 
@@ -289,7 +302,9 @@ async def fetch_resource(
         )
         if thread:
             return thread
-        logger.info("Falling back to HTML fetch for %s after Reddit parsing failure", url)
+        logger.info(
+            "Falling back to HTML fetch for %s after Reddit parsing failure", url
+        )
 
     html = await fetch_html(
         url,

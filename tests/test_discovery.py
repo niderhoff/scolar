@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from datetime import timedelta
 from pathlib import Path
+from typing import cast
 
+import httpx
 import pytest
 
 from scolar.config import Settings
@@ -46,15 +48,13 @@ async def test_discover_candidate_urls_uses_cache(tmp_path: Path) -> None:
 
     result = await discover_candidate_urls(
         "llm agents",
-        http_client=_FailingClient(),
+        http_client=cast(httpx.AsyncClient, _FailingClient()),
         settings=settings,
         refresh_cache=False,
         cache=cache,
     )
 
-    assert result == [
-        "https://www.reddit.com/r/localllama/comments/abc/agent_thread/"
-    ]
+    assert result == ["https://www.reddit.com/r/localllama/comments/abc/agent_thread/"]
 
 
 @pytest.mark.asyncio
@@ -83,7 +83,7 @@ async def test_discover_candidate_urls_fetches_and_caches(tmp_path: Path) -> Non
 
     first_result = await discover_candidate_urls(
         "prompt",
-        http_client=client,
+        http_client=cast(httpx.AsyncClient, client),
         settings=settings,
         refresh_cache=False,
         cache=cache,
@@ -97,7 +97,7 @@ async def test_discover_candidate_urls_fetches_and_caches(tmp_path: Path) -> Non
 
     cached_result = await discover_candidate_urls(
         "prompt",
-        http_client=_FailingClient(),
+        http_client=cast(httpx.AsyncClient, _FailingClient()),
         settings=settings,
         refresh_cache=False,
         cache=cache,

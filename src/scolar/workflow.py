@@ -12,6 +12,7 @@ from pydantic import Field
 
 from .answer import SynthesisResult
 from .config import Settings
+from .discovery import SearchHitCache
 from .pipeline import ProcessedPage
 from .search import SearchExpansion
 
@@ -57,11 +58,12 @@ class GatherPagesFn(Protocol):
 class DiscoverCandidateUrlsFn(Protocol):
     async def __call__(
         self,
-        *,
         prompt: str,
+        *,
         http_client: httpx.AsyncClient,
         settings: Settings,
         refresh_cache: bool,
+        cache: SearchHitCache | None = None,
     ) -> list[str]: ...
 
 

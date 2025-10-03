@@ -4,8 +4,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import cast
 
 import pytest
+
+from openai import AsyncOpenAI
 
 from scolar.answer import SynthesisResult, synthesize_answer
 from scolar.config import Settings
@@ -128,7 +131,7 @@ async def test_synthesize_answer_orders_and_limits_pages(tmp_path: Path) -> None
     settings = _settings(tmp_path, max_pages=2, excerpt_chars=240)
 
     result = await synthesize_answer(
-        client,
+        cast(AsyncOpenAI, client),
         settings,
         research_prompt="Prompt",
         pages=[page_low, page_mid, page_high],
@@ -168,7 +171,7 @@ async def test_synthesize_answer_returns_none_on_empty_payload(tmp_path: Path) -
     settings = _settings(tmp_path)
 
     result = await synthesize_answer(
-        client,
+        cast(AsyncOpenAI, client),
         settings,
         research_prompt="Prompt",
         pages=[page],
@@ -185,7 +188,7 @@ async def test_synthesize_answer_handles_no_pages(tmp_path: Path) -> None:
     settings = _settings(tmp_path)
 
     result = await synthesize_answer(
-        client,
+        cast(AsyncOpenAI, client),
         settings,
         research_prompt="Prompt",
         pages=[],

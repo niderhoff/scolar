@@ -9,7 +9,7 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Final
+from typing import Final, Protocol
 
 import httpx
 
@@ -28,6 +28,23 @@ class SearchHit:
     prompt: str
     urls: list[str]
     fetched_at: datetime
+
+
+class SupportsHttpResponse(Protocol):
+    def raise_for_status(self) -> None: ...
+
+    def json(self) -> object: ...
+
+
+class SupportsAsyncGet(Protocol):
+    async def get(
+        self,
+        url: str,
+        *,
+        params: object = None,
+        timeout: object = None,
+        **kwargs: object,
+    ) -> SupportsHttpResponse: ...
 
 
 class SearchHitCache:
@@ -216,5 +233,7 @@ async def discover_candidate_urls(
 __all__ = [
     "SearchHit",
     "SearchHitCache",
+    "SupportsAsyncGet",
+    "SupportsHttpResponse",
     "discover_candidate_urls",
 ]

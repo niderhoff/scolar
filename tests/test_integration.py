@@ -189,7 +189,9 @@ async def test_gather_pages_skips_when_llm_fails(tmp_path: Path) -> None:
 
 
 @pytest.mark.asyncio
-async def test_gather_pages_processes_reddit_thread(monkeypatch, tmp_path: Path) -> None:
+async def test_gather_pages_processes_reddit_thread(
+    monkeypatch, tmp_path: Path
+) -> None:
     reddit_url = "https://www.reddit.com/r/test/comments/abc/thread/"
     thread = RedditThread(
         identifier="abc",
