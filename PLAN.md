@@ -46,6 +46,7 @@
 
 - [x] Eliminated `typing.Any` usages in configuration and integration tests to tighten static type coverage.
 - [x] Migrated legacy generics (`Dict`, `List`, `Optional`) to builtin `dict`, `list`, and union syntax across runtime and tests.
+- [x] Added GitHub Actions workflow that syncs dependencies with `uv` and runs `ruff check` plus `mypy` on pushes and pull requests.
 
 ## Next Steps
 
@@ -53,3 +54,4 @@
 2. [ ] Consider snapshot-based assertions for large markdown outputs once additional report sections are introduced.
 3. [ ] Evaluate adding a static type checker (e.g., mypy or pyright) to enforce stricter annotations in CI.
 4. [ ] Audit remaining modules for `collections.abc` usage to ensure consistency with modern type hints.
+5. [ ] Extend CI pipeline to execute `uv run pytest` for integration coverage alongside lint/type checks.

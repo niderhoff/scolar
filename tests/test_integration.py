@@ -5,8 +5,12 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
+from typing import cast
 
 import pytest
+
+import httpx
+from openai import AsyncOpenAI
 
 from scolar.config import Settings
 from scolar.pipeline import gather_pages
@@ -91,7 +95,7 @@ async def test_gather_pages_happy_path(tmp_path: Path) -> None:
     <body><p>Sample content paragraph.</p><a href='https://example.com/next'>Next</a></body>
     </html>
     """
-    http_client = _FakeHTTPClient({url: html})
+    fake_http_client = _FakeHTTPClient({url: html})
 
     llm_output = {
         "summary": "Concise summary of the page.",
@@ -108,7 +112,7 @@ async def test_gather_pages_happy_path(tmp_path: Path) -> None:
             }
         ],
     }
-    llm_client = _FakeLLMClient([json_dumps(llm_output)])
+    fake_llm_client = _FakeLLMClient([json_dumps(llm_output)])
 
     settings = _make_settings(tmp_path)
 
@@ -116,8 +120,8 @@ async def test_gather_pages_happy_path(tmp_path: Path) -> None:
         [url],
         research_prompt="Prompt",
         settings=settings,
-        http_client=http_client,
-        llm_client=llm_client,
+        http_client=cast(httpx.AsyncClient, fake_http_client),
+        llm_client=cast(AsyncOpenAI, fake_llm_client),
     )
 
     assert len(results) == 1
@@ -133,8 +137,8 @@ async def test_gather_pages_happy_path(tmp_path: Path) -> None:
     stored = processed.page.markdown_path.read_text(encoding="utf-8")
     assert "Sample content paragraph" in stored
 
-    assert http_client.requested == [url]
-    assert llm_client.responses.calls == 1
+    assert fake_http_client.requested == [url]
+    assert fake_llm_client.responses.calls == 1
 
 
 @pytest.mark.asyncio
@@ -143,8 +147,8 @@ async def test_gather_pages_skips_when_llm_fails(tmp_path: Path) -> None:
 
     url = "https://example.com/bad"
     html = "<html><body><p>Content</p></body></html>"
-    http_client = _FakeHTTPClient({url: html})
-    llm_client = _FakeLLMClient(["not json"])
+    fake_http_client = _FakeHTTPClient({url: html})
+    fake_llm_client = _FakeLLMClient(["not json"])
 
     settings = _make_settings(tmp_path)
 
@@ -152,8 +156,8 @@ async def test_gather_pages_skips_when_llm_fails(tmp_path: Path) -> None:
         [url],
         research_prompt="Prompt",
         settings=settings,
-        http_client=http_client,
-        llm_client=llm_client,
+        http_client=cast(httpx.AsyncClient, fake_http_client),
+        llm_client=cast(AsyncOpenAI, fake_llm_client),
     )
 
     assert results == []

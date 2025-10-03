@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import cast
 
 from dynaconf import Dynaconf
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -12,6 +13,9 @@ _dynaconf_settings = Dynaconf(
     load_dotenv=True,
     environments=True,
 )
+
+
+SettingValue = int | float | str | Path
 
 
 class Settings(BaseModel):
@@ -43,12 +47,12 @@ class Settings(BaseModel):
 
 
 def load_settings() -> Settings:
-    raw: dict[str, object] = {}
+    raw: dict[str, SettingValue] = {}
     for field_name in Settings.model_fields:
         value = _dynaconf_settings.get(field_name, default=None)
         if value is not None:
-            raw[field_name] = value
-    return Settings(**raw)
+            raw[field_name] = cast(SettingValue, value)
+    return Settings.model_validate(raw)
 
 
 __all__ = ["Settings", "load_settings", "_dynaconf_settings"]

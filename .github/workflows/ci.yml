@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  lint-and-type-check:
+    name: Ruff & Mypy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v2
+        with:
+          python-version: "3.13"
+
+      - name: Sync dependencies
+        run: uv sync --dev
+
+      - name: Ruff check
+        run: uv run ruff check src tests
+
+      - name: Mypy
+        run: uv run mypy
